@@ -1,0 +1,320 @@
+#!/bin/bash
+# Title: nmap-scan
+# Author: Hak5Darren
+# Props: Korben
+# Description: Uses nmap to scan configurable targets / scan profiles.
+
+PROFILE="payload.cfg"
+LOOT_DIR=/root/loot/nmap
+LED SETUP
+mkdir -p $LOOT_DIR
+
+
+get_config_options() {
+  NMAP_SCAN="$(GET_PAYLOAD_CONFIG_OPTION NMAP_SCAN "-sL" $PROFILE)"
+  HOST_TIMEOUT="$(GET_PAYLOAD_CONFIG_OPTION HOST_TIMEOUT "30s" $PROFILE)"
+  MAX_RETRIES="$(GET_PAYLOAD_CONFIG_OPTION MAX_RETRIES "2" $PROFILE)"
+  SCAN_NETMODE="$(GET_PAYLOAD_CONFIG_OPTION SCAN_NETMODE "DHCP_CLIENT" $PROFILE)"
+  SCAN_TARGET="$(GET_PAYLOAD_CONFIG_OPTION SCAN_TARGET "SUBNET" $PROFILE)"
+}
+
+show_settings() {
+  ALERT "NETMODE: SCAN_NETMODE\nTarget: SCAN_TARGET\nScan: $NMAP_SCAN\nRetries: $MAX_RETRIES\nTimeout: $HOST_TIMEOUT" 3 false true
+}
+
+source /usr/bin/list_tools
+initialize_menu() {
+  add_menu_item "Execute Scan" "execute_scan"
+  add_menu_item "Scan Settings" "menu_settings"
+  add_menu_item "Profile" "render_menu_profile"
+  add_menu_item "Quit Payload" "exit_menu"
+
+  add_submenu_item "menu_settings" "NETMODE" "set_netmode"
+  add_submenu_item "menu_settings" "Target" "set_target"
+  add_submenu_item "menu_settings" "Scan Type" "set_scan_type"
+  add_submenu_item "menu_settings" "Max Retries" "set_max_retries"
+  add_submenu_item "menu_settings" "Host Timeout" "set_host_timeout"
+  add_submenu_item "menu_settings" "Save as Profile" "menu_save_profile"
+  add_submenu_item "menu_settings" "← Back"
+
+  add_submenu_item "menu_save_profile" "Default Profile" "save_as_default_profile"
+  add_submenu_item "menu_save_profile" "New Profile" "save_as_new_profile"
+  add_submenu_item "menu_save_profile" "Existing Profile" "save_as_existing_profile"
+  add_submenu_item "menu_save_profile" "← Back"
+}
+
+save_as_new_profile() {
+  profile_name="$(TEXT_PICKER "Profile Name" "profile01" "abcdefghijklmnopqrstuvwxyz0123456789")"
+  if [ "$profile_name" = "← Back" ]; then
+    ALERT "Cancelled" 2 false
+    return
+  fi
+  PROFILE="${profile_name}.cfg"
+  NMAP_SCAN="$(SET_PAYLOAD_CONFIG_OPTION NMAP_SCAN "-sL" $PROFILE)"
+  HOST_TIMEOUT="$(SET_PAYLOAD_CONFIG_OPTION HOST_TIMEOUT "30s" $PROFILE)"
+  MAX_RETRIES="$(SET_PAYLOAD_CONFIG_OPTION MAX_RETRIES "2" $PROFILE)"
+  SCAN_NETMODE="$(SET_PAYLOAD_CONFIG_OPTION SCAN_NETMODE "DHCP_CLIENT" $PROFILE)"
+  SCAN_TARGET="$(SET_PAYLOAD_CONFIG_OPTION SCAN_TARGET "SUBNET" $PROFILE)"
+  ALERT "Profile: $PROFILE Saved" 3 false
+}
+
+save_as_default_profile() {
+  PROFILE="profile.cfg"
+  NMAP_SCAN="$(SET_PAYLOAD_CONFIG_OPTION NMAP_SCAN "-sL" $PROFILE)"
+  HOST_TIMEOUT="$(SET_PAYLOAD_CONFIG_OPTION HOST_TIMEOUT "30s" $PROFILE)"
+  MAX_RETRIES="$(SET_PAYLOAD_CONFIG_OPTION MAX_RETRIES "2" $PROFILE)"
+  SCAN_NETMODE="$(SET_PAYLOAD_CONFIG_OPTION SCAN_NETMODE "DHCP_CLIENT" $PROFILE)"
+  SCAN_TARGET="$(SET_PAYLOAD_CONFIG_OPTION SCAN_TARGET "SUBNET" $PROFILE)"
+}
+
+render_menu_profile() {
+  RESP="$(PROFILE_CONFIG_MENU)"
+  if [ "$RESP" = "← Back" ]; then
+    return
+  fi
+  PROFILE="$RESP"
+  get_config_options
+  show_settings
+}
+
+set_netmode() {
+  SCAN_NETMODE="$(LIST_PICKER "Scan NETMODE" "DHCP_CLIENT STATIC" "DHCP_CLIENT")"
+  case "$SCAN_NETMODE" in
+    "DHCP_CLIENT")
+      ALERT "Network Mode Updated" 1 false
+    ;;
+    "STATIC")
+      STATIC_ARGUMENTS="$(CREATE_NETMODE_ARGUMENTS "192.168.1.100" "255.255.255.0" "192.168.1.1")"
+      ALERT "Network Mode Updated" 1 false
+    ;;
+  esac
+}
+
+set_target() {
+  SCAN_TARGET="$(LIST_PICKER "Target" "Entire_Subnet Specific_IP" "Entire_Subnet")"
+  case "$SCAN_TARGET" in
+    "Entire_Subnet")
+      SCAN_TARGET="SUBNET"
+    ;;
+    "Specific_IP")
+      RESP="$(IP_PICKER "IP Address" "192.168.1.100")"
+      if [ "$RESP" != "← Back" ]; then
+        SCAN_TARGET="$RESP"
+      fi
+    ;;
+  esac
+}
+
+set_scan_type() {
+  SCAN_TYPE="$(LIST_PICKER "Scan Type" "List Discovery Ping Port Service" "Ping")"
+  case "$SCAN_TYPE" in
+    "List") NMAP_SCAN="-sL" ;;
+    "Discovery") NMAP_SCAN="-sn" ;;
+    "Ping") NMAP_SCAN="-sP" ;;
+    "Port") set_port_scan ;;
+    "Service") NMAP_SCAN="-sV" 
+      SVC_SPEED="$(OPTION_DIALOG "Service/Version Scan Speed" "Fast" "Slow")"
+        case "$SVC_SPEED" in
+          "Fast") NMAP_SCAN="-sV -version-light" ;;
+          "Slow") NMAP_SCAN="-sV" ;;
+        esac
+    ;;
+    "← Back") ;;
+    *)
+      ALERT "Scan Type Error" 5 && exit;;
+  esac
+}
+
+set_port_scan() {
+  PORT_SCAN="$(LIST_PICKER "Ports to Scan" "Fast-100 Top-1000 Individual Range All" "Fast-100")"
+  case "$PORT_SCAN" in
+    "Fast-100") NMAP_SCAN="-sS -F" ;;
+    "Top-1000") NMAP_SCAN="-sS -top-ports 1000" ;;
+    "Individual")
+      INDI_PORT="$(SINGLE_NUMBER_PICKER "Port" "1")"
+      if [ "$INDI_PORT" = "← Back"]; then
+        ALERT "Cancelled" 1 false
+        return
+      fi
+      if [ "$INDI_PORT" -ge "65536" ]; then
+        ALERT "Port too high" 2; return
+      fi
+      if [ "$INDI_PORT" = "0" ]; then
+        ALERT "Port too low" 2; return
+      fi
+      NMAP_SCAN="-p $INDI_PORT"
+    ;;
+    "Range")
+      RANGE_LOW="$(SINGLE_NUMBER_PICKER "Range Low" "1")"
+      if [ "$RANGE_LOW" -ge "65536" ]; then
+        ALERT "Port too high" 5; return
+      fi
+      if [ "$RANGE_LOW" -le "0" ]; then
+        ALERT "Port too low" 5; return 
+      fi
+      RANGE_HIGH="$(SINGLE_NUMBER_PICKER "Range High" "1")"
+      if [ "$RANGE_HIGH" = "" ]; then
+        NMAP_SCAN="-sL"
+      fi
+      if [ "$RANGE_HIGH" -ge "65536" ]; then
+        ALERT "Port too high" 5; return  
+      fi
+      if [ "$RANGE_HIGH" = "0" ]; then 
+        ALERT "Port too low" 5; return
+      fi
+      NMAP_SCAN="-p $RANGE_LOW-$RANGE_HIGH"
+    ;;
+    "All")
+      NMAP_SCAN="-sS -p-"
+    ;;
+  esac
+}
+
+set_max_retries() {
+  RESP="$(SINGLE_NUMBER_PICKER "Max Retries" "$MAX_RETRIES")"
+  if [ "$RESP" = "← Back" ]; then
+    return
+  fi
+  MAX_RETRIES="$RESP"
+}
+
+set_host_timeout() {
+  RESP="$(SINGLE_NUMBER_PICKER "Host Timeout" "$HOST_TIMEOUT")"
+  if [ "$RESP" = "← Back" ]; then
+    return
+  fi
+  HOST_TIMEOUT="$RESP"
+  HOST_TIMEOUT="${HOST_TIMEOUT}s"
+}
+
+dhcp_client() {
+  NETMODE DHCP_CLIENT
+  WAIT_FOR_IP
+  while [ -z "$SUBNET" ]; do
+    sleep 1 && SUBNET=$(ip addr | grep -i eth0 | grep -i inet | grep -E -o "([0-9]{1,3}[\.]){3}[0-9]{1,3}[\/]{1}[0-9]{1,2}")
+  done
+  SCREEN_WRITE "Got IP:"
+    IPADDR=$(ip -o -4 addr show eth0 | awk '{print $4}' | cut -d/ -f1)
+  SCREEN_WRITE "$IPADDR"
+}
+
+static_ip() {
+  NETMODE STATIC 
+}
+
+execute_scan() {
+  LED ATTACK
+  # Set loot scan number
+  COUNT=$(($(ls -l $LOOT_DIR/*.txt | wc -l)+1))
+
+  if [ "$SCAN_NETMODE" = "DHCP_CLIENT"]; then
+    NETMODE DHCP_CLIENT
+    WAIT_FOR_IP
+    SCREEN_WRITE "Got IP:"
+    IPADDR=$(ip -o -4 addr show eth0 | awk '{print $4}' | cut -d/ -f1)
+    SCREEN_WRITE "$IPADDR"
+  fi
+  
+  if [ "$SCAN_NETMODE" = "STATIC"]; then
+    NETMODE STATIC "$STATIC_ARGUMENTS"
+  fi
+  
+  if [ "$SCAN_TARGET" = "SUBNET" ]; then
+    SUBNET=$(ip addr | grep -i eth0 | grep -i inet | grep -E -o "([0-9]{1,3}[\.]){3}[0-9]{1,3}[\/]{1}[0-9]{1,2}")
+    SCAN_TARGET="$SUBNET"
+  fi
+
+  NMAP_COMMAND="$NMAP_SCAN $SCAN_TARGET --max-retries $MAX_RETRIES --host-timeout $HOST_TIMEOUT --stats-every 1s"
+  SCREEN_WRITE "Starting nmap with $NMAP_COMMAND"
+
+  # Wait for Ethernet link
+  WAIT_FOR_LINK
+  echo "nmap $NMAP_COMMAND" > $LOOT_DIR/scan-$COUNT.txt
+  source /usr/bin/progress_bar_tools
+  create_progress_bar "Scanning"
+  nmap $NMAP_COMMAND >> $LOOT_DIR/scan-$COUNT.txt &
+  pidof_nmap=$!
+  logger -t "nmap-payload" "nmap $NMAP_COMMAND > $LOOT_DIR/scan-$COUNT.txt"
+  COMPLETE=0
+  # Progress bar while scanning
+  while true; do
+    sleep 0.5
+    logger -t PAYLOAD "progress $COMPLETE"
+    COMPLETE="$(cat "$LOOT_DIR/scan-$COUNT.txt"|grep "remaining" | awk '{print $6}' | tail -n1 | cut -d'.' -f1)"
+    if [ -z "$(ps | grep $pidof_nmap | grep -v grep)" ]; then
+      set_progress 100
+      break
+    fi
+    if [ "$COMPLETE" = "100" ];then
+      set_progress 100
+      break
+    fi
+    logger -t PAYLOAD "COMPLETE:|$COMPLETE|"
+    set_progress $COMPLETE
+  done
+  results_alert
+}
+
+
+results_alert() {
+  LED FINISH
+  case "$SCAN_TYPE" in
+    "List")
+      HOSTS_FOUND="$(cat "$LOOT_DIR/scan-$COUNT.txt" | grep "Nmap scan report for" | grep "(" | wc -l)"
+      ALERT "Scan $COUNT Done. \nHost count $HOST_FOUND" 2
+      ALERT "Scan $COUNT Done. \nHost count $HOST_FOUND" -1 false
+    ;;
+    "Discovery")
+      HOSTS_FOUND="$(cat "$LOOT_DIR/scan-$COUNT.txt" | grep "Nmap done" | awk -F '[()]' '{print $2}')"
+      ALERT "Scan $COUNT Done. \n$HOSTS_FOUND" 2
+      ALERT "Scan $COUNT Done. \n$HOSTS_FOUND" -1 false
+    ;;
+    "Ping")  
+      HOSTS_FOUND="$(cat "$LOOT_DIR/scan-$COUNT.txt" | grep "Nmap done" | awk -F '[()]' '{print $2}')"
+      ALERT "Scan $COUNT Done. \n$HOSTS_FOUND" 2
+      ALERT "Scan $COUNT Done. \n$HOSTS_FOUND" -1 false
+    ;;
+    "Port")
+      # if subnet or single ip
+    ;;
+    "Service") ;;
+  esac
+
+
+  ALERT "Scan $COUNT Done" 2
+  # TODO Display number of hosts found
+  show_results
+}
+
+show_results() {
+ case "$SCAN_TYPE" in
+    "List")
+      RESULTS="$(cat $LOOT_DIR/scan-$COUNT.txt | grep "Nmap scan report for" | grep '(')"
+      while IFS= read -r line; do
+        # Skip empty lines
+        [[ -z "$line" ]] && continue
+        # Extract the hostname (between "Nmap scan report for " and the first space)
+# TODO duplicate and blank host names
+        hostname=$(echo "$line" | sed -E 's/^Nmap scan report for ([^ ]+) .*/\1/')
+        # Extract the IP address from inside parentheses
+        ip=$(echo "$line" | sed -E 's/.*\(([^)]+)\).*/\1/')
+        # Call the existing add_submenu_item function
+        add_submenu_item "results" "$hostname" "results_menu_${hostname}"
+        add_submenu_item "results_menu_${hostname}" "$ip" "noop"
+      done <<< "$RESULTS"
+        add_submenu_item "Quit Results" "Back"
+        select_menu results
+    ;;
+
+
+    "Discovery") NMAP_SCAN="-sn" ;;
+    "Ping") NMAP_SCAN="-sP" ;;
+       # same as list
+    "Port") set_port_scan ;;
+    "Service") NMAP_SCAN="-sV" 
+  esac
+}
+
+get_config_options
+initialize_menu
+start_menu
