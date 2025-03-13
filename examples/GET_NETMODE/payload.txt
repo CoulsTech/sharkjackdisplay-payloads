@@ -1,0 +1,5 @@
+#!/bin/bash
+
+resp="$(GET_NETMODE)"
+
+SCREEN_WRITE "$resp"

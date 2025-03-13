@@ -1,0 +1,11 @@
+#!/bin/bash
+
+resp="$(COUNTDOWN "COUNTDOWN" 10)"
+if [ "$resp" = "Cancelled" ]; then
+  SCREEN_WRITE "Finished!"
+  ALERT "Cancelled" 2 false
+else
+  SCREEN_WRITE "Cancelled!"
+  ALERT "Cancelled" 2 false
+fi
+
