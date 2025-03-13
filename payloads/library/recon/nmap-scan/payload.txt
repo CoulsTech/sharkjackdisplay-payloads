@@ -275,9 +275,27 @@ results_alert() {
       ALERT "Scan $COUNT Done. \n$HOSTS_FOUND" -1 false
     ;;
     "Port")
-      # if subnet or single ip
+      if [ "$SCAN_TARGET" != "SUBNET" ]; then
+        PORTS_FOUND="$(cat "$LOOT_DIR/scan-$COUNT.txt" | grep tcp | grep open | wc -l)"
+        ALERT "Scan $COUNT Done. \nPorts open $PORTS_FOUND" 2
+        ALERT "Scan $COUNT Done. \nPorts open $PORTS_FOUND" -1 false
+      else
+        HOSTS_SCANNED="$(cat "$LOOT_DIR/scan-$COUNT.txt" | grep "Nmap done" | awk -F '[()]' '{print $2}  | awk '{print $1}'')"
+        ALERT "Scan $COUNT Done. \n$HOSTS_SCANNED" 2
+        ALERT "Scan $COUNT Done. \n$HOSTS_SCANNED" -1 false
+      fi
     ;;
-    "Service") ;;
+    "Service") 
+      if [ "$SCAN_TARGET" != "SUBNET" ]; then
+        PORTS_FOUND="$(cat "$LOOT_DIR/scan-$COUNT.txt" | grep tcp | grep open | wc -l)"
+        ALERT "Scan $COUNT Done. \nPorts open $PORTS_FOUND" 2
+        ALERT "Scan $COUNT Done. \nPorts open $PORTS_FOUND" -1 false
+      else
+        HOSTS_SCANNED="$(cat "$LOOT_DIR/scan-$COUNT.txt" | grep "Nmap done" | awk -F '[()]' '{print $2}  | awk '{print $1}'')"
+        ALERT "Scan $COUNT Done. \n$HOSTS_SCANNED" 2
+        ALERT "Scan $COUNT Done. \n$HOSTS_SCANNED" -1 false
+      fi
+    ;;
   esac
 
 
