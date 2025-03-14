@@ -229,16 +229,13 @@ execute_scan() {
   fi
 
   NMAP_COMMAND="$NMAP_SCAN $SCAN_TARGET --max-retries $MAX_RETRIES --host-timeout $HOST_TIMEOUT --stats-every 1s"
-  SCREEN_WRITE "=Starting nmap="
-  SCREEN_WRITE "$NMAP_SCAN"
-  SCREEN_WRITE "$SCAN_TARGET"
-  SCREEN_WRITE "$MAX_RETRIES $HOST_TIMEOUT"
-
+  SCREEN_WRITE "Start scan $COUNT"
+  
   # Wait for Ethernet link
   WAIT_FOR_LINK
   echo "nmap $NMAP_COMMAND" > $LOOT_DIR/scan-$COUNT.txt
   source /usr/lib/progress_bar_tools
-  CREATE_PROGRESS_BAR "Scanning"
+  CREATE_PROGRESS_BAR "Scan $COUNT"
   nmap $NMAP_COMMAND >> $LOOT_DIR/scan-$COUNT.txt &
   pidof_nmap=$!
   logger -t "nmap-payload" "nmap $NMAP_COMMAND > $LOOT_DIR/scan-$COUNT.txt"
@@ -276,8 +273,8 @@ results_alert() {
       HOSTS_FOUND="$(cat "$LOOT_DIR/scan-$COUNT.txt" | grep "Nmap scan report for" | grep "(" | wc -l)"
       ALERT "Scan $COUNT Done. \nHost count $HOSTS_FOUND" 2
       ALERT "Scan $COUNT Done. \nHost count $HOSTS_FOUND" -1 false
-      RESP="$(OPTION_DIALOG "View Results?" "Yes" "No")"
-      if [ "$RESP" = "Yes" ]; then
+      RESP="$(OPTION_DIALOG "View Results?" " Yes " " No ")"
+      if [ "$RESP" = " Yes " ]; then
         show_results_list
       fi
     ;;
@@ -286,12 +283,20 @@ results_alert() {
       HOSTS_FOUND="$(cat "$LOOT_DIR/scan-$COUNT.txt" | grep "Nmap done" | awk -F '[()]' '{print $2}')"
       ALERT "Scan $COUNT Done. \n$HOSTS_FOUND" 2
       ALERT "Scan $COUNT Done. \n$HOSTS_FOUND" -1 false
+      RESP="$(OPTION_DIALOG "View Results?" " Yes " " No ")"
+      if [ "$RESP" = " Yes " ]; then
+        show_results_ping
+      fi
     ;;
     # Ping
     "-sP")  
       HOSTS_FOUND="$(cat "$LOOT_DIR/scan-$COUNT.txt" | grep "Nmap done" | awk -F '[()]' '{print $2}')"
       ALERT "Scan $COUNT Done. \n$HOSTS_FOUND" 2
       ALERT "Scan $COUNT Done. \n$HOSTS_FOUND" -1 false
+      RESP="$(OPTION_DIALOG "View Results?" " Yes " " No ")"
+      if [ "$RESP" = " Yes " ]; then
+        show_results_ping
+      fi
     ;;
     # Port
     "-sS"* | "-p"*)
@@ -329,80 +334,49 @@ results_alert() {
     ;;
   esac
 
-
-  #ALERT "Scan $COUNT Done" 2
-  # TODO Display number of hosts found
-  #show_results
 }
 
 show_results_list() {
+  source /usr/lib/spinner_tools
+  CREATE_SPINNER "Loading..."
   RESULTS="$(cat $LOOT_DIR/scan-$COUNT.txt | grep "Nmap scan report for" | grep '(')"
     while IFS= read -r line; do
-      # Skip empty lines
       [[ -z "$line" ]] && continue
-      # Extract the hostname (between "Nmap scan report for " and the first space)
-      # TODO duplicate and blank host names
       hostname="$(echo "$line" | grep "Nmap scan report for" | grep "(" | awk '{gsub(/\.lan$/, "", $5); print $5}')"
-      # Extract the IP address from inside parentheses
       ip="$(echo "$line" | grep "Nmap scan report for" | grep "(" | awk {'print $6'} | sed 's/(//' | sed 's/)//')"
-      # Call the existing ADD_SUBMENU_ITEM function
-      logger -t "nmap-payload" "ADD_SUBMENU_ITEM results $ip results_menu_${ip}"
       ADD_SUBMENU_ITEM "results" "$ip $hostname" "results_menu_${ip}"
-      logger -t "nmap-payload" "ADD_SUBMENU_ITEM results_menu_${ip} $hostname noop"
       ADD_SUBMENU_ITEM "results_menu_${ip}" "$hostname" "noop"
       ADD_SUBMENU_ITEM "results_menu_${ip}" "Set Target" "set_new_target" "${ip}"
       ADD_SUBMENU_ITEM "results_menu_${ip}" "Back" "Back"
     done <<< "$RESULTS"
     ADD_SUBMENU_ITEM "results" "Back" "Back"
+    STOP_SPINNER
+    SELECT_MENU results
+}
+
+show_results_ping() {
+  source /usr/lib/spinner_tools
+  CREATE_SPINNER "Loading..."
+  RESULTS="$(cat $LOOT_DIR/scan-$COUNT.txt | grep "Nmap scan report for" | grep '(')"
+    while IFS= read -r line; do
+      [[ -z "$line" ]] && continue
+      hostname="$(echo "$line"| grep "Nmap scan report for" | sed 's/Nmap scan report for '//g | sed 's/(//' | sed 's/)//' | awk '{if ($1 ~ /^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$/) print "noname", $0; else print $0}' | awk '{gsub(/\.lan$/, "", $1); print $1}')"
+      ip="$(echo "$line" | grep "Nmap scan report for" | sed 's/Nmap scan report for '//g | sed 's/(//' | sed 's/)//' | awk '{if ($1 ~ /^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$/) print "noname", $0; else print $0}' | awk '{print $2}')"
+      ADD_SUBMENU_ITEM "results" "$ip $hostname" "results_menu_${ip}"
+      ADD_SUBMENU_ITEM "results_menu_${ip}" "$hostname" "noop"
+      ADD_SUBMENU_ITEM "results_menu_${ip}" "Set Target" "set_new_target" "${ip}"
+      ADD_SUBMENU_ITEM "results_menu_${ip}" "Back" "Back"
+    done <<< "$RESULTS"
+    ADD_SUBMENU_ITEM "results" "Back" "Back"
+    STOP_SPINNER
     SELECT_MENU results
 }
 
 set_new_target() {
-  NEW_TARGET=$SELECTED_ITEM_DATA
-  ALERT "New Target: $NEW_TARGET" -1 false
-  EXIT_MENU
-  START_MENU
+  SCAN_TARGET=$SELECTED_ITEM_DATA
+  ALERT "New Target: $SCAN_TARGET" 2 false
+  SELECT_MENU main_menu
 }
-
-
-show_results() {
- case "$NMAP_SCAN" in
-    # List
-    "-sL")
-      RESULTS="$(cat $LOOT_DIR/scan-$COUNT.txt | grep "Nmap scan report for" | grep '(')"
-      while IFS= read -r line; do
-        # Skip empty lines
-        [[ -z "$line" ]] && continue
-        # Extract the hostname (between "Nmap scan report for " and the first space)
-        # TODO duplicate and blank host names
-        hostname="$(echo "$line" | grep "Nmap scan report for" | grep "(" | awk {'print $5'})"
-        # Extract the IP address from inside parentheses
-        ip="$(echo "$line" | grep "Nmap scan report for" | grep "(" | awk {'print $6'} | sed 's/(//' | sed 's/)//')"
-        # Call the existing ADD_SUBMENU_ITEM function
-        ADD_SUBMENU_ITEM "results" "$ip" "results_menu_${ip}"
-        ADD_SUBMENU_ITEM "results_menu_${ip}" "$hostname" "noop"
-      done <<< "$RESULTS"
-        ADD_SUBMENU_ITEM "Quit Results" "Back"
-        SELECT_MENU results
-    ;;
-
-
-    "Discovery")
-      ALERT "TODO" -1 false
-    ;;
-    "Ping")
-        ALERT "TODO" -1 false
-       # same as list
-    ;;
-    "Port")
-      ALERT "TODO" -1 false
-    ;;
-    "Service")
-      ALERT "TODO" -1 false
-    ;;
-  esac
-}
-
 
 get_config_options
   logger -t "nmap-payload" "Startup options:"
