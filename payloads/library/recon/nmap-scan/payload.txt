@@ -98,6 +98,7 @@ set_netmode() {
 }
 
 set_target() {
+  OLD_SCAN_TARGET=$SCAN_TARGET
   TARGET_PICK="$(OPTION_DIALOG "Target" "Subnet" "IP_Addr")"
   # TARGET_PICK="$(LIST_PICKER "Target" "Entire_Subnet Specific_IP" "Entire_Subnet")"
   case "$TARGET_PICK" in
@@ -114,6 +115,9 @@ set_target() {
       fi
     ;;
   esac
+  if [ "$OLD_SCAN_TARGET" != "$SCAN_TARGET" ]; then
+    set_scan_type
+  fi
 }
 
 set_scan_type() {
@@ -168,6 +172,7 @@ set_port_scan() {
     "Individual")
       INDI_PORT="$(SINGLE_NUMBER_PICKER "Port" "1")"
       if [ "$INDI_PORT" = "← Back"]; then
+        # TODO Ask Dallas why this never runs (never matches on Back)
         ALERT "Cancelled" 1 false
         return
       fi
@@ -202,6 +207,8 @@ set_port_scan() {
     "All")
       NMAP_SCAN="-sS -p-"
     ;;
+    "← Back") set_port_scan ;;
+    *) ALERT "Ports to Scan Error" 5 && exit ;;
   esac
 }
 
