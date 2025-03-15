@@ -287,6 +287,7 @@ execute_ping(){
     SCREEN_WRITE " \n "
     SCREEN_WRITE "$RESULT"
     SCREEN_WRITE " \n "
+    ALERT "                  ▐▀▌▐ ▌ ▐  ▄▄    ▐ ▌▐ █ ▐ ▐  ▀   ▐▄▌▐ ▌▌▐ ▌ ▄▄   ▐  ▐ ▌▐▐ ▐  ▐   ▐  ▐ ▌ █  ▀▄▀ " 1 false true
   else
     LED $LED_FAIL
     RESULT="Ping Failed"
