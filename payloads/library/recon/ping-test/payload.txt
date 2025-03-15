@@ -1,0 +1,328 @@
+#!/bin/bash
+# Title: ping-test
+# Author: Hak5Darren
+# Props: Korben
+# Description: Tests ping to configurable host
+logger -t "ping-payload" "Started"
+
+PROFILE="payload.cfg"
+LOOT_DIR=/root/loot/ping
+LED SETUP
+mkdir -p $LOOT_DIR
+source /usr/lib/list_tools
+
+get_config_options(){
+  logger -t "ping-payload" "get_config_option"
+  PING_HOST="$(GET_PAYLOAD_CONFIG_OPTION PING_HOST "8.8.8.8" $PROFILE)"
+  PING_NUM="$(GET_PAYLOAD_CONFIG_OPTION PING_NUM "4" $PROFILE)"
+  LED_SUCCESS="$(GET_PAYLOAD_CONFIG_OPTION LED_SUCCESS "G" $PROFILE)"
+  LED_FAIL="$(GET_PAYLOAD_CONFIG_OPTION LED_FAIL "R" $PROFILE)"
+  LOOP_TEST="$(GET_PAYLOAD_CONFIG_OPTION LOOP_TEST "FALSE" $PROFILE)"
+  PING_NETMODE="$(GET_PAYLOAD_CONFIG_OPTION PING_NETMODE "DHCP_CLIENT" $PROFILE)"
+  STATIC_ARGUMENTS="$(GET_PAYLOAD_CONFIG_OPTION STATIC_ARGUMENTS "" $PROFILE)"
+
+  logger -t "ping-payload" "PING_HOST: $PING_HOST"
+  logger -t "ping-payload" "PING_NUM: $PING_NUM"
+  logger -t "ping-payload" "LED_SUCCESS: $LED_SUCCESS"
+  logger -t "ping-payload" "LED_FAIL: $LED_FAIL"
+  logger -t "ping-payload" "LOOP_TEST: $LOOP_TEST"
+  logger -t "ping-payload" "PING_NETMODE: $PING_NETMODE"
+  logger -t "ping-payload" "STATIC_ARGUMENTS: $STATIC_ARGUMENTS"
+}
+
+initialize_menu() {
+  logger -t "ping-payload" "initialize_menu"
+
+  ADD_MENU_ITEM "Start Ping" "execute_ping"
+  ADD_MENU_ITEM "Ping Options" "menu_options"
+  ADD_MENU_ITEM "Profiles" "menu_profiles"
+  ADD_MENU_ITEM "Quit" "EXIT_MENU"
+
+  ADD_SUBMENU_ITEM "menu_profiles" "Load Profile" "render_menu_profile"
+  ADD_SUBMENU_ITEM "menu_profiles" "Save Profile" "menu_save_profile"
+  ADD_SUBMENU_ITEM "menu_profiles" "← Back"
+
+  ADD_SUBMENU_ITEM "menu_options" "Change Options" "menu_change_options"
+  ADD_SUBMENU_ITEM "menu_options" "Show Options" "show_options"
+  ADD_SUBMENU_ITEM "menu_options" "← Back"
+
+  ADD_SUBMENU_ITEM "menu_change_options" "Host" "set_host"
+  ADD_SUBMENU_ITEM "menu_change_options" "Pings" "set_ping_num"
+  ADD_SUBMENU_ITEM "menu_change_options" "Advanced" "menu_options_advanced"
+  ADD_SUBMENU_ITEM "menu_change_options" "← Back"
+
+  ADD_SUBMENU_ITEM "menu_options_advanced" "Success Color" "set_success_led"
+  ADD_SUBMENU_ITEM "menu_options_advanced" "Fail Color" "set_fail_led"
+  ADD_SUBMENU_ITEM "menu_options_advanced" "NETMODE" "set_netmode"
+  ADD_SUBMENU_ITEM "menu_options_advanced" "Continuous Test" "set_continuous"
+  ADD_SUBMENU_ITEM "menu_options_advanced" "← Back"
+
+  ADD_SUBMENU_ITEM "menu_save_profile" "Save Default" "save_as_default_profile"
+  ADD_SUBMENU_ITEM "menu_save_profile" "Save As..." "save_as_new_profile"
+  ADD_SUBMENU_ITEM "menu_save_profile" "← Back"
+}
+
+render_menu_profile(){
+  logger -t "ping-payload" "render_menu_profile"
+  RESP="$(PAYLOAD_CONFIG_MENU)"
+  if [ "$RESP" = "← Back" ]; then
+    return
+  fi
+  PROFILE="$RESP"
+  logger -t "ping-payload" "Loaded profile: $PROFILE"
+  get_config_options
+  show_options
+}
+
+show_options(){
+  logger -t "ping-payload" "show_options"
+  RESP="$(OPTION_DIALOG "Ping $PING_HOST $PING_NUM times" "Back" "Advanced")"
+  case "$RESP" in
+    "Back") 
+      return
+    ;;
+    "Advanced")
+      ALERT "Host: $PING_HOST\nPings: $PING_NUM\nSuccess LED: $LED_SUCCESS\nFail LED: $LED_FAIL\nNET: $PING_NETMODE\nLOOP_TEST: $LOOP_TEST" -1 false true
+    ;;
+  esac
+}
+
+save_as_default_profile(){
+  logger -t "ping-payload" "save_as_default_profile"
+  PROFILE="profile.cfg"
+  PING_HOST="$(SET_PAYLOAD_CONFIG_OPTION PING_HOST "$PING_HOST" $PROFILE)"
+  PING_NUM="$(SET_PAYLOAD_CONFIG_OPTION PING_NUM "$PING_NUM" $PROFILE)"
+  LED_SUCCESS="$(SET_PAYLOAD_CONFIG_OPTION LED_SUCCESS "$LED_SUCCESS" $PROFILE)"
+  LED_FAIL="$(SET_PAYLOAD_CONFIG_OPTION LED_FAIL "$LED_FAIL" $PROFILE)"
+  LOOP_TEST="$(SET_PAYLOAD_CONFIG_OPTION LOOP_TEST "$LOOP_TEST" $PROFILE)"
+  PING_NETMODE="$(SET_PAYLOAD_CONFIG_OPTION PING_NETMODE "$PING_NETMODE" $PROFILE)"
+  STATIC_ARGUMENTS="$(GET_PAYLOAD_CONFIG_OPTION STATIC_ARGUMENTS "$STATIC_ARGUMENTS" $PROFILE)"
+  ALERT "Default Profile Saved" 3 false
+  get_config_options
+}
+
+save_as_new_profile(){
+  logger -t "ping-payload" "save_as_new_profile"
+  RESP="$(TEXT_PICKER "Profile Name" "profile01" "abcdefghijklmnopqrstuvwxyz_0123456789")"
+  if [ "$RESP" = "← Back" ]; then
+    ALERT "Cancelled" 2 false
+    return
+  fi
+  PROFILE="${RESP}.cfg"
+  PING_HOST="$(SET_PAYLOAD_CONFIG_OPTION PING_HOST "$PING_HOST" $PROFILE)"
+  PING_NUM="$(SET_PAYLOAD_CONFIG_OPTION PING_NUM "$PING_NUM" $PROFILE)"
+  LED_SUCCESS="$(SET_PAYLOAD_CONFIG_OPTION LED_SUCCESS "$LED_SUCCESS" $PROFILE)"
+  LED_FAIL="$(SET_PAYLOAD_CONFIG_OPTION LED_FAIL "$LED_FAIL" $PROFILE)"
+  LOOP_TEST="$(SET_PAYLOAD_CONFIG_OPTION LOOP_TEST "$LOOP_TEST" $PROFILE)"
+  PING_NETMODE="$(SET_PAYLOAD_CONFIG_OPTION PING_NETMODE "$PING_NETMODE" $PROFILE)"
+  STATIC_ARGUMENTS="$(GET_PAYLOAD_CONFIG_OPTION STATIC_ARGUMENTS "$STATIC_ARGUMENTS" $PROFILE)"
+  ALERT "Profile: $PROFILE Saved" 3 false
+  get_config_options
+}
+
+set_host(){
+  logger -t "ping-payload" "set_host"
+  RESP="$(OPTION_DIALOG "Address Type" "IP" "Hostname")"
+  case "$RESP" in
+    "IP")
+      set_host_ip 
+    ;;
+    "Hostname")
+      set_host_name
+    ;;
+  esac
+}
+
+set_host_ip(){
+  logger -t "ping-payload" "set_host_ip"
+  RESP="$(IP_PICKER "IP Address" "127.000.000.001")"
+  case "$RESP" in
+    *Back*)
+      ALERT "Host not set" 2 false
+    ;;
+    *)
+      PING_HOST="$RESP"
+    ;;
+  esac
+}
+
+set_host_name(){
+  logger -t "ping-payload" "set_host_name"
+  RESP="$(TEXT_PICKER "Hostname" "www.example.com" "abcdefghijklmnopqrstuvwxyz0123456789-.")"
+  case "$RESP" in
+    *Back*)
+      ALERT "Host not set" 2 false
+    ;;
+    *)
+      PING_HOST="$RESP"
+    ;;
+  esac
+}
+
+set_ping_num(){
+  logger -t "ping-payload" "set_ping_name"
+  RESP="$(SINGLE_NUMBER_PICKER "Number of pings" "4")"
+  if [ "$RESP" = "0" ]; then
+    ALERT "Number must be 1 or greater" 3 false
+    set_ping_num
+  fi
+  PING_NUM=$RESP
+}
+
+set_success_led(){
+  logger -t "ping-payload" "set_success_led"
+  RESP="$(LIST_PICKER "Success LED" "Green Blue Red Yellow Magenta White" "Green")"
+  case "$RESP" in
+    *Back*) ALERT "LED not set" 2 false ;;
+    "Green")   LED_SUCCESS="G" ;;
+    "Blue")    LED_SUCCESS="B" ;;
+    "Red")     LED_SUCCESS="R" ;;
+    "Yellow")  LED_SUCCESS="Y" ;;
+    "Magenta") LED_SUCCESS="M" ;;
+    "White")   LED_SUCCESS="W" ;;
+  esac
+}
+
+set_fail_led(){
+  logger -t "ping-payload" "set_fail_led"
+  RESP="$(LIST_PICKER "Failure LED" "Red Green Blue Yellow Magenta White" "Red")"
+  case "$RESP" in
+    *Back*) ALERT "LED not set" 2 false ;;
+    "Green")   LED_SUCCESS="G" ;;
+    "Blue")    LED_SUCCESS="B" ;;
+    "Red")     LED_SUCCESS="R" ;;
+    "Yellow")  LED_SUCCESS="Y" ;;
+    "Magenta") LED_SUCCESS="M" ;;
+    "White")   LED_SUCCESS="W" ;;
+  esac  
+}
+
+set_netmode() {
+  logger -t "ping-payload" "set_netmode"
+  # TODO Need help from Dallas on this
+  RESP="$(LIST_PICKER "Ping NETMODE" "DHCP_CLIENT STATIC" "DHCP_CLIENT")"
+  case "$RESP" in
+    "DHCP_CLIENT")
+      PING_NETMODE="DHCP_CLIENT"
+      ALERT "Network Mode Updated" 1 false
+    ;;
+    "STATIC")
+      RESP="$(CREATE_NETMODE_ARGUMENTS "192.168.1.100" "255.255.255.0" "192.168.1.1")"
+      case "$RESP" in
+        "Back")
+          ALERT "NETMODE not set" 2 false
+        ;;
+        *) 
+          PING_NETMODE="STATIC"
+          STATIC_ARGUMENTS=$RESP
+          ALERT "Network Mode Updated" 1 false
+        ;;
+      esac
+    ;;
+    "Back")
+      ALERT "NETMODE not set" 2 false
+    ;;
+  esac
+}
+
+set_continuous(){
+  logger -t "ping-payload" "set_continuous"
+  RESP="$(OPTION_DIALOG "Start new ping test after button press?" " Yes " " No ")"
+  case "$RESP" in
+    " Yes ")
+      LOOP_TEST="TRUE"
+    ;;
+    " No ")
+      LOOP_TEST="FALSE"
+    ;;
+  esac
+}
+
+execute_netmode(){
+  logger -t "ping-payload" "execute_netmode"
+  case "$PING_NETMODE" in
+    "DHCP_CLIENT")
+      SCREEN_WRITE "Getting DHCP IP"
+      NETMODE DHCP_CLIENT
+      WAIT_FOR_IP
+      IPADDR=$(ip -o -4 addr show eth0 | awk '{print $4}' | cut -d/ -f1)
+      SCREEN_WRITE "Got IP:"
+      SCREEN_WRITE "$IPADDR"
+    ;;
+    "STATIC")
+      SCREEN_WRITE "Set Static IP"
+      NETMODE STATIC "$STATIC_ARGUMENTS"
+    ;;
+  esac
+}
+
+execute_ping(){
+  logger -t "ping-payload" "execute_ping"
+  # Turn off the LED
+  LED OFF
+  
+  # Set loot file number
+  COUNT=$(($(ls -l $LOOT_DIR/*.txt | wc -l)+1))
+  LOOT_FILE=$LOOT_DIR/ping-$COUNT.txt
+  
+  # Wait for network link
+  SCREEN_WRITE "Awaiting Link"
+  WAIT_FOR_LINK
+  SCREEN_WRITE "Ethernet Active"
+
+  execute_netmode
+
+  PING_COMMAND="$PING_HOST -c $PING_NUM"
+  SCREEN_WRITE "Start test $COUNT"
+
+  echo "ping $PING_COMMAND" > $LOOT_FILE
+  SCREEN_WRITE "Pinging host:"
+  SCREEN_WRITE "$PING_HOST"
+
+  ping $PING_HOST -c $PING_NUM >> $LOOT_FILE
+
+  if [ "$(cat $LOOT_FILE | grep loss | awk '{print $7}')" != "100%" ]; then
+    LED $LED_SUCCESS
+    RESULT="Ping Successful"
+    SCREEN_WRITE " \n "
+    SCREEN_WRITE "$RESULT"
+    SCREEN_WRITE " \n "
+  else
+    LED $LED_FAIL
+    RESULT="Ping Failed"
+    SCREEN_WRITE " \n "
+    SCREEN_WRITE "$RESULT"
+    SCREEN_WRITE " \n "
+  fi
+
+  show_results
+
+#  if [ "$LOOP_TEST" = "TRUE" ]; then
+#    SCREEN_WRITE "Press ← to Redo"
+#    SCREEN_WRITE "Press ↑↓ to End"
+#    RESP="$(WAIT_FOR_INPUT)"
+#    case "$RESP" in
+#      "switch-right"|"switch-left")
+#        return
+#      ;;
+#      "switch-middle")
+#        execute_ping
+#      ;;
+#    esac
+#  fi
+
+}
+
+show_results(){
+  logger -t "ping-payload" "show_results"
+  TX="$(cat $LOOT_FILE | grep loss | awk '{print $1}')"
+  RX="$(cat $LOOT_FILE | grep loss | awk '{print $1}')"
+  LOSS="$(cat $LOOT_FILE | grep loss | awk '{print $7}')"
+  SCREEN_WRITE "$TX TX $RX RX"
+  SCREEN_WRITE "$LOSS loss"
+}
+
+get_config_options
+initialize_menu
+START_MENU
+logger -t "ping-payload" "Ended"
