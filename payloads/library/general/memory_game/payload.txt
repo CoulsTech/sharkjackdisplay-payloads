@@ -16,8 +16,8 @@ ROUND=1
 # Round delay and pattern length
 get_round_config() {
   case $1 in
-    1) delay=5; length=4; TAUNT="" ;;
-    2) delay=4; length=5; TAUNT=":)" ;;
+    1) delay=4; length=4; TAUNT="" ;;
+    2) delay=4; length=5; TAUNT=":-)" ;;
     3) delay=3; length=6; TAUNT="Ok!" ;;
     4) delay=6; length=7; TAUNT="Nice!" ;;
     5) delay=5; length=7; TAUNT="Niiice!" ;;
@@ -66,13 +66,14 @@ while true; do
   get_round_config "$ROUND"
 
   # Show round & countdown
-  ALERT "$TAUNT \n Round $ROUND" 1 false
-
-  # Reset LED and countdown
+  ALERT "$TAUNT\n Round $ROUND" 1 false
   LED OFF
-  ALERT "3..." 1 false
-  ALERT "2..." 1 false
-  ALERT "1..." 1 false
+  ALERT "3.." 0 false
+  sleep 0.2
+  ALERT ".2." 0 false
+  sleep 0.2
+  ALERT "..1" 0 false
+  sleep 0.2
 
   # Generate pattern of $length random arrows
   pattern=()
@@ -85,12 +86,28 @@ while true; do
   ALERT "$(printf "%s" "${pattern[@]}")" "$delay" false
   CLEAR_SCREEN
 
-  # Input loop
+  # Map input back to arrows
+  map_input_to_arrow() {
+    case "$1" in
+      "switch-right") echo "↑" ;;
+      "switch-left") echo "↓" ;;
+      "switch-middle") echo "←" ;;
+    esac
+  }
+  
+  # Input loop with feedback
   correct=true
+  player_display=""
+  
   for expected in "${pattern[@]}"; do
     input=$(WAIT_FOR_INPUT)
     expected_input=$(map_arrow "$expected")
-
+    arrow_char=$(map_input_to_arrow "$input")
+    player_display="$player_display$arrow_char"
+  
+    # Show progress
+    ALERT "$player_display" 0 false
+  
     if [ "$input" != "$expected_input" ]; then
       correct=false
       break
