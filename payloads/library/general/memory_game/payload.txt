@@ -1,4 +1,9 @@
 #!/bin/bash
+# Title: Sharky Memory
+# Author: Hak5Darren
+# Props: Korben
+# Description: Try your luck at this memory recall game.
+
 LED OFF
 
 # Arrow to button input map
