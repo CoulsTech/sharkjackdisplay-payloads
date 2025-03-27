@@ -7,7 +7,6 @@
 LED SETUP
 TEST_IP="8.8.8.8"
 TEST_HOST="www.example.com"
-source /usr/lib/list_tools
 
 set_host_ip(){
   TEST_IP="$(IP_PICKER "IP Address" "001.001.001.001")"
@@ -20,7 +19,6 @@ show_options(){
 }
 
 test_connection(){
-  source /usr/lib/spinner_tools
   CREATE_SPINNER "Starting DHCP"
     NETMODE DHCP_CLIENT
   STOP_SPINNER
@@ -35,8 +33,6 @@ test_connection(){
   wget -q --timeout=3 "https://$TEST_HOST" -O- && SCREEN_WRITE "OK HTTPS" || SCREEN_WRITE "FAIL HTTPS"
   PUB_IP="$(curl -s https://checkip.amazonaws.com)" && SCREEN_WRITE "Public IP:"; SCREEN_WRITE "$PUB_IP" || SCREEN_WRITE "Public IP FAIL"
   LED FINISH
-  SCREEN_WRITE "Done. Press key"
-  WAIT_FOR_INPUT
   exit
 }
 
