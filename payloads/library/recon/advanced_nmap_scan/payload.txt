@@ -5,7 +5,7 @@
 # Description: Configurable nmap scanner with profiles and logging.
 
 setup_payload(){
-  PROFILE="payload.cfg"
+  PROFILE="default.cfg"
   LOOT_DIR=/root/loot/nmap
   SCAN_NOW=0
   LED SETUP
@@ -90,8 +90,8 @@ save_as_new_profile() {
 }
 
 save_as_default_profile() {
-  # Save current configuration as default profile ('payload.cfg')
-  PROFILE="payload.cfg"
+  # Save current configuration as default profile ('default.cfg')
+  PROFILE="default.cfg"
   NMAP_SCAN="$(SET_PAYLOAD_CONFIG_OPTION NMAP_SCAN "$NMAP_SCAN" $PROFILE)"
   HOST_TIMEOUT="$(SET_PAYLOAD_CONFIG_OPTION HOST_TIMEOUT "$HOST_TIMEOUT" $PROFILE)"
   MAX_RETRIES="$(SET_PAYLOAD_CONFIG_OPTION MAX_RETRIES "$MAX_RETRIES" $PROFILE)"
