@@ -10,7 +10,7 @@ else
   SCREEN_WRITE "User cancelled!"
 fi
 
-sleep 1
+sleep 2
 
 SCREEN_WRITE "Custom args"
 # Custom Title and button
@@ -21,4 +21,3 @@ else
   SCREEN_WRITE "User cancelled!"
 fi
 
-sleep 1

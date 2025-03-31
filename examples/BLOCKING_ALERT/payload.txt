@@ -21,11 +21,11 @@ SCREEN_WRITE "Flashing"
 
 # This will display a flashing alert titled "Flashing!" for 2 seconds, USER CANNOT EXIT EARLY
 # the title will automatically be centered horizontally and vertically
-BLOCKING_ALERT "Flashing!" 2
+BLOCKING_ALERT "Flashing!" 3
 
 SCREEN_WRITE "Done"
 
-sleep 0.5
+sleep 1
 
 ########################################################
 # Solid Alert
@@ -35,11 +35,11 @@ SCREEN_WRITE "Solid"
 
 # This will display a solid alert titled "Solid" for 1 second, USER CANNOT EXIT EARLY
 # the title will automatically be centered horizontally and vertically
-BLOCKING_ALERT "Solid" 1 false
+BLOCKING_ALERT "Solid" 3 false
 
 SCREEN_WRITE "Done"
 
-sleep 0.5
+sleep 1
 
 ########################################################
 # Raw Formatting Alert (Raw)
@@ -49,11 +49,11 @@ SCREEN_WRITE "Raw Title"
 
 # This will display a solid alert titled "Raw Format!" for 1 second, USER CANNOT EXIT EARLY
 # the title will not be automatically formatted by the BLOCKING_ALERT command, allowing the caller to format as desired
-BLOCKING_ALERT "Raw Format!" 1 false true
+BLOCKING_ALERT "Raw Format!" 3 false true
 
 SCREEN_WRITE "Done"
 
-sleep 0.5
+sleep 1
 
 ########################################################
 # Raw Formatting Alert (Formatted)
@@ -62,10 +62,10 @@ sleep 0.5
 SCREEN_WRITE "Formatting"
 
 # This will display a solid alert titled "Raw Format!" for 1 second, USER CANNOT EXIT EARLY
-BLOCKING_ALERT "$(center_text "Manual")\n\n$(center_text "Format!")" 1 false true
+BLOCKING_ALERT "$(center_text "Manual")\n\n$(center_text "Format!")" 3 false true
 SCREEN_WRITE "Done"
 
-sleep 0.5
+sleep 1
 
 SCREEN_WRITE "Demo Complete"
 
