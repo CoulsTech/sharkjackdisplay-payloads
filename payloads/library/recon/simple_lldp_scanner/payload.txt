@@ -5,6 +5,7 @@
 # Description: Listens for an LLDP Neighbor. If found, displays basic results
 LED SETUP
 TIMEOUT=60
+/etc/init.d/lldpd start
 CREATE_SPINNER "Starting DHCP"
   NETMODE DHCP_CLIENT
 STOP_SPINNER
