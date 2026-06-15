@@ -67,14 +67,9 @@ NETWORK_RESULT() {
 SCREEN_WRITE "Pregnancy Test"
 sleep 1
 
-resp="$(TEXT_PICKER "Start test? (Y/N)" "Y")"
+resp="$(CONFIRMATION_DIALOG "Start test?" "Start")"
 
-if [ "$resp" = "← Back" ]; then
-    SCREEN_WRITE "Canceled"
-    exit 0
-fi
-
-if [ "$resp" != "Y" ] && [ "$resp" != "y" ]; then
+if [ "$resp" != "Start" ]; then
     SCREEN_WRITE "Aborted"
     exit 0
 fi
@@ -114,5 +109,13 @@ SCREEN_WRITE "Do not pee on the Shark Jack"
 sleep 2
 
 SCREEN_WRITE "Warranty may be voided"
+
+# ===== ADDITION (minimal restart logic) =====
+
+resp="$(CONFIRMATION_DIALOG "Run again?" "Restart")"
+
+if [ "$resp" = "Restart" ]; then
+    exec "$0"
+fi
 
 exit 0
