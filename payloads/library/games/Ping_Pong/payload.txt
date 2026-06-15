@@ -1,0 +1,103 @@
+#!/bin/bash
+
+# Title: PING_PONG FSM
+# Description: 3-lane ICMP visualizer with RTT
+# Author: CoulsTech
+
+
+TARGET="8.8.8.8"
+SEQ=0
+SCORE=0
+
+
+# state model
+# 0 = left
+# 1 = center
+# 2 = right
+# 3 = miss
+
+
+SCREEN_WRITE "PING_PONG FSM"
+sleep 1
+
+resp="$(CONFIRMATION_DIALOG "Start Packet Simulation?" "Start")"
+
+if [ "$resp" != "Start" ]; then
+    SCREEN_WRITE "Aborted"
+    exit 0
+fi
+
+
+initialize_menu_system() {
+  ADD_MENU_ITEM "Single Player" "noop" ""
+  ADD_MENU_ITEM "Multiplayer" "noop" ""
+  ADD_MENU_ITEM "Diagnostic Mode" "noop" ""
+  ADD_MENU_ITEM "Quit" "EXIT_MENU" ""
+}
+
+SCREEN_WRITE "Initializing Modes..."
+sleep 1
+initialize_menu_system
+START_MENU
+
+
+get_rtt() {
+    local out rtt
+
+    out=$(ping -c 1 -W 1 "$TARGET" 2>/dev/null)
+    rtt=$(echo "$out" | grep -oE 'time=[0-9.]+' | cut -d= -f2)
+
+    if [ -z "$rtt" ]; then
+        echo 0
+    else
+        echo "${rtt%.*}"
+    fi
+}
+
+
+compute_state() {
+    local rtt seed
+    rtt="$1"
+    seed=$((SEQ + rtt + RANDOM))
+    echo $((seed % 4))
+}
+
+
+render_lane() {
+    case "$1" in
+
+##TODO: Render Lanes
+
+    esac
+}
+
+
+SCREEN_WRITE "Linking ICMP stream..."
+CREATE_SPINNER "SYNCING PACKETS"
+sleep 2
+STOP_SPINNER
+
+
+while true; do
+
+    SEQ=$((SEQ + 1))
+
+    RTT=$(get_rtt)
+
+    STATE=$(compute_state "$RTT")
+
+    render_lane "$STATE"
+
+    if [ "$STATE" -eq 3 ]; then
+        SCORE=$((SCORE - 1))
+        ALERT "MISS EVENT" 1 false
+    else
+        SCORE=$((SCORE + 1))
+    fi
+
+    SCREEN_WRITE "SCORE: $SCORE"
+    SCREEN_WRITE "RTT: ${RTT}ms"
+
+    sleep 0.6
+
+done
