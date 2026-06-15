@@ -110,8 +110,6 @@ sleep 2
 
 SCREEN_WRITE "Warranty may be voided"
 
-# ===== ADDITION (minimal restart logic) =====
-
 resp="$(CONFIRMATION_DIALOG "Run again?" "Restart")"
 
 if [ "$resp" = "Restart" ]; then
